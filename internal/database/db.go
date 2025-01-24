@@ -1,58 +1,35 @@
 package database
 
 import (
-	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
+	"log"
+	"os"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-type DB struct {
-	*sql.DB
-}
+//	interface DB {
+//		StoreType(t *GraphQLType) error
+//		StoreField(f *Field) error
+//		StoreFieldArgument(a *FieldArgument) error
+//		StoreDirective(d *Directive) error
+//	}
 
-func NewDB() (*DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+func NewDB() (*gorm.DB, error) {
+	//db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+
+	// delete test.db if it exists
+	os.Remove("test.db")
+
+	db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := initSchema(db); err != nil {
-		db.Close()
-		return nil, err
+	if err := db.AutoMigrate(&Type{}, &Field{}, &Directive{}, &TypeDirective{}, &FieldDirective{}, &TypeDirectiveArgument{}, &FieldDirectiveArgument{}); err != nil {
+
+		log.Fatalf("failed to migrate schema: %v", err)
 	}
 
-	return &DB{db}, nil
-}
-
-func initSchema(db *sql.DB) error {
-	schema := `
-	CREATE TABLE types (
-		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		kind TEXT NOT NULL
-	);
-
-	CREATE TABLE directives (
-		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL,
-		type_id INTEGER,
-		FOREIGN KEY(type_id) REFERENCES types(id)
-	);
-
-	CREATE TABLE directive_arguments (
-		id INTEGER PRIMARY KEY,
-		directive_id INTEGER,
-		name TEXT NOT NULL,
-		value_type TEXT NOT NULL,
-		default_value TEXT,
-		FOREIGN KEY(directive_id) REFERENCES directives(id)
-	);
-
-	CREATE TABLE directive_locations (
-		directive_id INTEGER,
-		location TEXT NOT NULL,
-		FOREIGN KEY(directive_id) REFERENCES directives(id)
-	);`
-
-	_, err := db.Exec(schema)
-	return err
+	return db, nil
 }

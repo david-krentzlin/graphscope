@@ -23,10 +23,9 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to initialize database: %v", err)
 			}
-			defer db.Close()
 
 			a := analyzer.New(db)
-			if err := a.ProcessDirectory(schemaDir); err != nil {
+			if err := a.IngestFiles(schemaDir); err != nil {
 				log.Fatalf("Failed to process schema directory: %v", err)
 			}
 
