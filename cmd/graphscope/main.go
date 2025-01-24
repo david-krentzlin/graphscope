@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-
 	var rootCmd = &cobra.Command{
-		Short: "GraphScope analyzes GraphQL schemas with focus on directives",
+		Use:   "graphscope <schema-director>",
+		Short: "Graphscope gives insights into your GraphQL schema",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			schemaDir := args[0]
@@ -25,15 +25,12 @@ func main() {
 			}
 			defer db.Close()
 
-			// Initialize analyzer
 			a := analyzer.New(db)
-
-			// Process schema directory
 			if err := a.ProcessDirectory(schemaDir); err != nil {
 				log.Fatalf("Failed to process schema directory: %v", err)
 			}
 
-			fmt.Println("Schema analysis complete. Use queries to explore the schema.")
+			fmt.Printf("Schema analysis complete. Loaded %d files", a.FilesLoaded)
 		},
 	}
 
