@@ -2,7 +2,7 @@
 
 # Variables
 BINARY_NAME=graphscope
-BUILD_DIR=build
+BUILD_DIR=bin
 
 # Build the application
 build:

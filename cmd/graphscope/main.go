@@ -4,32 +4,62 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/schollz/progressbar/v3"
+
+	//tea "github.com/charmbracelet/bubbletea"
 	"github.com/david-krentzlin/graphscope/internal/analyzer"
-	"github.com/david-krentzlin/graphscope/internal/database"
+	//"github.com/david-krentzlin/graphscope/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "graphscope <schema-director>",
+		Use:   "graphscope <schema-directory>",
 		Short: "Graphscope gives insights into your GraphQL schema",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			schemaDir := args[0]
 
-			// Initialize database
-			db, err := database.NewDB()
+			updateChan := make(chan analyzer.ProgressUpdate)
+			analyzerInstance, err := analyzer.New(schemaDir, updateChan)
 			if err != nil {
-				log.Fatalf("Failed to initialize database: %v", err)
+				log.Fatalf("Error creating analyzer: %v", err)
+				return
 			}
+			bar := progressbar.Default(int64(analyzerInstance.TotalFiles), "Parsing schema files")
+			go analyzerInstance.Parse()
 
-			a := analyzer.New(db)
-			if err := a.IngestFiles(schemaDir); err != nil {
-				log.Fatalf("Failed to process schema directory: %v", err)
+			for {
+				select {
+				case update, more := <-updateChan:
+					if !more {
+						fmt.Println("✅ Parsing phase completed.")
+						return
+					}
+
+					if update == nil {
+						// Unexpected nil message, continue safely
+						continue
+					}
+
+					switch update := update.(type) {
+					case analyzer.ParseSchemaFile:
+						// let's make the output relative to the schema directory
+
+						relativePath, err := filepath.Rel(schemaDir, update.CurrentFile)
+						bar.Add(1)
+						bar.AddDetail(relativePath)
+						if err != nil {
+							log.Fatalf("Error getting relative path: %v", err)
+						}
+					case analyzer.ParseSchemaComplete:
+						return
+
+					}
+				}
 			}
-
-			fmt.Printf("Schema analysis complete. Loaded %d files", a.FilesLoaded)
 		},
 	}
 
