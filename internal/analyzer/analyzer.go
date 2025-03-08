@@ -42,14 +42,36 @@ func (ExtractResolverDefinition) isProgressUpdate() {}
 func (ExtractResolverUsage) isProgressUpdate()      {}
 
 type Resolver struct {
+	Directive  *ast.Directive
 	Definition *ast.Definition
 	References []*ast.FieldDefinition
 }
 
+func (r Resolver) Path() string {
+	pathArg := r.Directive.Arguments.ForName("url")
+	if pathArg != nil {
+		return pathArg.Value.Raw
+	}
+	return ""
+}
+
+func (r Resolver) Type() string {
+	tpe := strings.ReplaceAll(r.Directive.Name, "http", "")
+	return strings.ToUpper(tpe)
+}
+
+func (r Resolver) Name() string {
+	return r.Definition.Name
+}
+
+func (r Resolver) Location() string {
+	return fmt.Sprintf("%s:%d:%d", r.Definition.Position.Src.Name, r.Definition.Position.Start, r.Definition.Position.End)
+}
+
 type ResolverFilter struct {
-	name *string
-	tpe  *string
-	path *string
+	Name *string
+	Tpe  *string
+	Path *string
 }
 
 type Analyzer struct {
@@ -80,6 +102,25 @@ func (a *Analyzer) Ingest() error {
 	return nil
 }
 
+func (a *Analyzer) FindResolvers() []*Resolver {
+	var resolvers []*Resolver
+	for _, resolver := range a.ResolverIndex {
+		resolvers = append(resolvers, resolver)
+	}
+	return resolvers
+}
+
+func ResolverInfo(resolver *Resolver) string {
+	return fmt.Sprintf("%s %s %s", resolver.Name(), resolver.Type(), resolver.Path())
+}
+
+func (a *Analyzer) ResolverDefinition(name string) *Resolver {
+	if resolver, found := a.ResolverIndex[strings.ToLower(name)]; found {
+		return resolver
+	}
+	return nil
+}
+
 func (a *Analyzer) Parse() error {
 	schema, err := a.parseSchemaDefinitions()
 	if err != nil {
@@ -102,27 +143,22 @@ func (a *Analyzer) IndexResolvers() error {
 				switch directive.Name {
 				case "httpGet":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				case "httpGetBatched":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				case "httpPost":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				case "httpPut":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				case "httpPatch":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				case "httpDelete":
 					indexable = true
-					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def}
 				default:
 					indexable = false
 				}
 
 				if indexable {
+					a.ResolverIndex[strings.ToLower(def.Name)] = &Resolver{Definition: def, Directive: directive}
 					a.sendUpdate(ExtractResolverDefinition{Name: def.Name, DefinitionName: directive.Name})
 				}
 			}
