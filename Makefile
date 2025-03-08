@@ -7,7 +7,7 @@ BUILD_DIR=bin
 # Build the application
 build:
 	@echo "Building $(BINARY_NAME)..."
-	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/graphscope
+	@go build -o $(BUILD_DIR)/$(BINARY_NAME) main.go
 
 # Run tests
 test:
