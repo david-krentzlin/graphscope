@@ -5,7 +5,7 @@ BINARY_NAME=graphscope
 BUILD_DIR=bin
 
 # Build the application
-build:
+build: deps
 	@echo "Building $(BINARY_NAME)..."
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) main.go
 
