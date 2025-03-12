@@ -5,17 +5,18 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/david-krentzlin/graphscope/internal/analyzer"
+	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spf13/cobra"
 )
 
 var (
-	flagName bool
-	flagType bool
-	flagUrl  bool
-	flagEdit bool
+	flagName       bool
+	flagType       bool
+	flagUrl        bool
+	flagEdit       bool
+	flagReferences bool
 )
 
 var resolverCmd = &cobra.Command{
@@ -41,33 +42,22 @@ var resolverCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
-		candidates := []string{}
-		for _, resolver := range resolvers {
-			candidates = append(candidates, resolverOutputLine(resolver))
-		}
+		idx, err := fuzzyfinder.Find(resolvers, func(i int) string {
+			return resolverOutputLine(resolvers[i])
+		})
 
-		fzf := exec.Command("fzf")
-		fzf.Stdin = strings.NewReader(strings.Join(candidates, "\n"))
-		output, err := fzf.Output()
-		if err != nil {
-			fmt.Println("Error running fzf:", err)
+		if idx == -1 {
 			return
 		}
 
-		selected := strings.TrimSpace(string(output))
-		if selected == "" {
-			fmt.Println("No selection made")
-			return
-		} else {
-			resolverName := strings.Split(selected, " ")[0]
-			def := analyzerInstance.ResolverDefinition(resolverName)
-			if def != nil {
-				//use less to display the file
-				lessCmd := exec.Command("less", fmt.Sprintf("+%d", def.Definition.Position.Line), def.Definition.Position.Src.Name)
-				lessCmd.Stdout = os.Stdout
-				lessCmd.Stderr = os.Stderr
-				lessCmd.Run()
-			}
+		selectedResolver := resolvers[idx]
+		resolverName := selectedResolver.Name()
+		def := analyzerInstance.ResolverDefinition(resolverName)
+		if def != nil {
+			lessCmd := exec.Command("less", fmt.Sprintf("+%d", def.Definition.Position.Line), def.Definition.Position.Src.Name)
+			lessCmd.Stdout = os.Stdout
+			lessCmd.Stderr = os.Stderr
+			lessCmd.Run()
 		}
 	},
 }
