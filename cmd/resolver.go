@@ -36,6 +36,8 @@ var resolverCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// analyzerInstance.DumpResolverIndex()
+		// return
 		resolvers := analyzerInstance.FindResolvers()
 		if len(resolvers) == 0 {
 			fmt.Println("No resolvers found")
@@ -54,10 +56,32 @@ var resolverCmd = &cobra.Command{
 		resolverName := selectedResolver.Name()
 		def := analyzerInstance.ResolverDefinition(resolverName)
 		if def != nil {
-			lessCmd := exec.Command("less", fmt.Sprintf("+%d", def.Definition.Position.Line), def.Definition.Position.Src.Name)
-			lessCmd.Stdout = os.Stdout
-			lessCmd.Stderr = os.Stderr
-			lessCmd.Run()
+			if flagReferences {
+				if len(def.References) == 0 {
+					fmt.Println("Resolver has no references")
+					fmt.Println("At the moment indirect references through @router or @onAuthenticationState are not supported")
+					return
+				}
+
+				// find the references rather than the definition
+				idx, err = fuzzyfinder.Find(def.References, func(i int) string {
+					return def.References[i].Path()
+				})
+				if idx == -1 {
+					return
+				}
+				selectedReference := def.References[idx]
+				lessCmd := exec.Command("less", fmt.Sprintf("+%d", selectedReference.Field.Position.Line), selectedReference.Field.Position.Src.Name)
+				lessCmd.Stdout = os.Stdout
+				lessCmd.Stderr = os.Stderr
+				lessCmd.Run()
+
+			} else {
+				lessCmd := exec.Command("less", fmt.Sprintf("+%d", def.Definition.Position.Line), def.Definition.Position.Src.Name)
+				lessCmd.Stdout = os.Stdout
+				lessCmd.Stderr = os.Stderr
+				lessCmd.Run()
+			}
 		}
 	},
 }
@@ -85,6 +109,7 @@ func init() {
 	resolverCmd.Flags().BoolVarP(&flagType, "type", "t", false, "Show the type of the resolver")
 	resolverCmd.Flags().BoolVarP(&flagUrl, "url", "u", false, "Show the URL of the resolver")
 	resolverCmd.Flags().BoolVarP(&flagEdit, "edit", "e", false, "Edit the resolver")
+	resolverCmd.Flags().BoolVarP(&flagReferences, "references", "r", false, "Find references rather than definitions")
 
 	rootCmd.AddCommand(resolverCmd)
 }

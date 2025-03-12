@@ -41,10 +41,19 @@ func (ExtractresolversComplete) isProgressUpdate()  {}
 func (ExtractResolverDefinition) isProgressUpdate() {}
 func (ExtractResolverUsage) isProgressUpdate()      {}
 
+type ResolverReference struct {
+	Object *ast.Definition
+	Field  *ast.FieldDefinition
+}
+
+func (r ResolverReference) Path() string {
+	return fmt.Sprintf("%s.%s", r.Object.Name, r.Field.Name)
+}
+
 type Resolver struct {
 	Directive  *ast.Directive
 	Definition *ast.Definition
-	References []*ast.FieldDefinition
+	References []ResolverReference
 }
 
 func (r Resolver) Path() string {
@@ -153,6 +162,12 @@ func (a *Analyzer) IndexResolvers() error {
 					indexable = true
 				case "httpDelete":
 					indexable = true
+				case "router":
+					indexable = true
+				case "onAuthenticationState":
+					indexable = true
+				case "scalaResolver":
+					indexable = true
 				default:
 					indexable = false
 				}
@@ -171,7 +186,7 @@ func (a *Analyzer) IndexResolvers() error {
 				for _, directive := range field.Directives {
 					// check if the directive is a resolver directive
 					if idx, found := a.ResolverIndex[strings.ToLower(directive.Name)]; found {
-						idx.References = append(idx.References, field)
+						idx.References = append(idx.References, ResolverReference{Object: def, Field: field})
 						a.sendUpdate(ExtractResolverUsage{ResolverName: directive.Name, FieldPath: fmt.Sprintf("%s.%s", def.Name, field.Name)})
 					}
 				}
@@ -181,6 +196,15 @@ func (a *Analyzer) IndexResolvers() error {
 
 	a.sendUpdate(ExtractresolversComplete{})
 	return nil
+}
+
+func (a *Analyzer) DumpResolverIndex() {
+	for _, resolver := range a.ResolverIndex {
+		fmt.Printf("Resolver: %s\n", resolver.Name())
+		for _, ref := range resolver.References {
+			fmt.Printf("  %s\n", ref.Path())
+		}
+	}
 }
 
 func collectSourcePaths(baseDir string) ([]string, error) {
