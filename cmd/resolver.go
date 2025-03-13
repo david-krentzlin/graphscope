@@ -17,6 +17,7 @@ var (
 	flagUrl        bool
 	flagEdit       bool
 	flagReferences bool
+	flagSourcePath bool
 )
 
 var resolverCmd = &cobra.Command{
@@ -44,8 +45,18 @@ var resolverCmd = &cobra.Command{
 			os.Exit(0)
 		}
 
+		maxNameLen := 0
+		maxTypeLen := 0
+		maxUrlLen := 0
+
+		for _, resolver := range resolvers {
+			maxNameLen = max(maxNameLen, len(resolver.Name()))
+			maxTypeLen = max(maxTypeLen, len(resolver.Type()))
+			maxUrlLen = max(maxUrlLen, len(resolver.Path()))
+		}
+
 		idx, err := fuzzyfinder.Find(resolvers, func(i int) string {
-			return resolverOutputLine(resolvers[i])
+			return resolverOutputLine(resolvers[i], schemaDir, maxNameLen, maxTypeLen, maxUrlLen)
 		})
 
 		if idx == -1 {
@@ -86,18 +97,24 @@ var resolverCmd = &cobra.Command{
 	},
 }
 
-func resolverOutputLine(resolver *analyzer.Resolver) string {
+func resolverOutputLine(resolver *analyzer.Resolver, baseDir string, maxNameLen, maxTypeLen, maxUrlLen int) string {
 	var output string
+
 	if flagName {
-		output += resolver.Name()
+		output += fmt.Sprintf("%s%*s", resolver.Name(), maxNameLen-len(resolver.Name()), "")
 		output += " "
 	}
 	if flagType {
-		output += resolver.Type()
+		output += fmt.Sprintf("%s%*s", resolver.Type(), maxTypeLen-len(resolver.Type()), "")
 		output += " "
 	}
 	if flagUrl {
-		output += resolver.Path()
+		output += fmt.Sprintf("%s%*s", resolver.Path(), maxUrlLen-len(resolver.Path()), "")
+		output += " "
+	}
+
+	if flagSourcePath {
+		output += resolver.RelativeSourcePath(baseDir)
 		output += " "
 	}
 	return output
@@ -110,6 +127,7 @@ func init() {
 	resolverCmd.Flags().BoolVarP(&flagUrl, "url", "u", false, "Show the URL of the resolver")
 	resolverCmd.Flags().BoolVarP(&flagEdit, "edit", "e", false, "Edit the resolver")
 	resolverCmd.Flags().BoolVarP(&flagReferences, "references", "r", false, "Find references rather than definitions")
+	resolverCmd.Flags().BoolVarP(&flagSourcePath, "source-path", "s", false, "Show the source path of the resolver")
 
 	rootCmd.AddCommand(resolverCmd)
 }

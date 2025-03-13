@@ -77,6 +77,10 @@ func (r Resolver) Location() string {
 	return fmt.Sprintf("%s:%d:%d", r.Definition.Position.Src.Name, r.Definition.Position.Start, r.Definition.Position.End)
 }
 
+func (r Resolver) RelativeSourcePath(baseDir string) string {
+	return strings.TrimPrefix(r.Definition.Position.Src.Name, baseDir)
+}
+
 type ResolverFilter struct {
 	Name *string
 	Tpe  *string
